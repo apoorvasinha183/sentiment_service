@@ -167,8 +167,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     let config = SentimentConfig {
         tick_interval: Duration::from_millis(100),
-        spike_prob: 0.05, // 5% chance of spike per tick
-        half_life: Duration::from_secs(20),
+        spike_prob: 0.05, // 1% chance of spike per tick
+        half_life: Duration::from_millis(50),
     };
 
     let service = SentimentService::from_csv(csv_path, Some(config))?;
