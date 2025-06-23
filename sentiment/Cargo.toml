@@ -1,0 +1,23 @@
+[package]
+name = "sentiment-microservice"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "sentiment_service"
+path = "src/sentiment_service.rs"
+
+[[bin]]
+name = "sentiment_client"
+path = "src/sentiment_client.rs"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+csv = "1.3"
+rand = "0.8"
+tokio = { version = "1.0", features = ["full"], optional = true }
+eframe = "0.22"
+egui = "0.22"
+[features]
+default = []
+async = ["tokio"]
