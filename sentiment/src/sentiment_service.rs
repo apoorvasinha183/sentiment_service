@@ -146,7 +146,7 @@ impl SentimentService {
                     eprintln!("Failed to broadcast {} sentiment: {}", stock.ticker, e);
                 }
                 
-                thread::sleep(Duration::from_millis(50)); // 20 updates per second
+                thread::sleep(Duration::from_millis(5)); // 200 updates per second
             }
         });
     }
