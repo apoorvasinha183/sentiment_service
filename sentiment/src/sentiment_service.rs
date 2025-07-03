@@ -22,16 +22,18 @@ pub struct Stock {
 #[derive(Debug, Clone)]
 pub struct SentimentConfig {
     pub tick_interval: Duration,
-    pub spike_prob: f64,
-    pub half_life: Duration,
+    pub mean: f64,
+    pub reversion_speed: f64,
+    pub volatility: f64,
 }
 
 impl Default for SentimentConfig {
     fn default() -> Self {
         Self {
             tick_interval: Duration::from_millis(100),
-            spike_prob: 0.1,
-            half_life: Duration::from_secs(30),
+            mean: 0.0,
+            reversion_speed: 0.5,
+            volatility: 0.2,
         }
     }
 }
@@ -39,6 +41,7 @@ impl Default for SentimentConfig {
 pub struct SentimentService {
     stocks: Vec<Stock>,
     sentiments: Arc<RwLock<HashMap<u64, f64>>>,
+    market_mood: Arc<RwLock<f64>>,
     config: SentimentConfig,
 }
 
@@ -52,6 +55,7 @@ impl SentimentService {
         Self {
             stocks,
             sentiments: Arc::new(RwLock::new(sentiments)),
+            market_mood: Arc::new(RwLock::new(0.0)),
             config: config.unwrap_or_default(),
         }
     }
@@ -83,31 +87,28 @@ impl SentimentService {
 
     fn start_sentiment_engine(&self) {
         let sentiments = Arc::clone(&self.sentiments);
+        let market_mood = Arc::clone(&self.market_mood);
         let stocks = self.stocks.clone();
         let config = self.config.clone();
 
         thread::spawn(move || {
             let mut rng = rand::thread_rng();
-            let decay = 2f64.powf(
-                -config.tick_interval.as_secs_f64() / config.half_life.as_secs_f64()
-            );
+            let dt = config.tick_interval.as_secs_f64();
 
             loop {
                 thread::sleep(config.tick_interval);
 
+                let mut mood = market_mood.write().unwrap();
+                let reversion = config.reversion_speed * (config.mean - *mood) * dt;
+                let noise = config.volatility * rng.gen::<f64>().sqrt() * dt.sqrt();
+                *mood += reversion + noise;
+                *mood = mood.clamp(-1.0, 1.0);
+
                 if let Ok(mut sentiment_map) = sentiments.write() {
                     for stock in &stocks {
                         if let Some(current_sentiment) = sentiment_map.get_mut(&stock.id) {
-                            if rng.gen_bool(config.spike_prob) {
-                                // Random spike
-                                *current_sentiment = rng.gen_range(-1.0..=1.0);
-                            } else {
-                                // Decay towards zero
-                                *current_sentiment *= decay;
-                            }
-
-                            // Clamp to [-1, 1]
-                            *current_sentiment = current_sentiment.clamp(-1.0, 1.0);
+                            let stock_noise = config.volatility * 0.1 * rng.gen::<f64>();
+                            *current_sentiment = (*mood + stock_noise).clamp(-1.0, 1.0);
                         }
                     }
                 }
@@ -167,8 +168,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     let config = SentimentConfig {
         tick_interval: Duration::from_millis(100),
-        spike_prob: 0.05, // 1% chance of spike per tick
-        half_life: Duration::from_millis(50),
+        mean: 0.0,
+        reversion_speed: 0.3,
+        volatility: 0.15,
     };
 
     let service = SentimentService::from_csv(csv_path, Some(config))?;

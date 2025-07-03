@@ -114,7 +114,7 @@ impl App for MyApp {
 
 fn main() {
     let native_options = NativeOptions::default();
-    run_native(
+    let _ = run_native(
         "Real-time Stock Sentiment Monitor", // window title
         native_options,
         Box::new(|cc| Box::new(MyApp::new(cc))),
