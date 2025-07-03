@@ -100,6 +100,7 @@ impl SentimentService {
 
                 let mut mood = market_mood.write().unwrap();
                 let reversion = config.reversion_speed * (config.mean - *mood) * dt;
+                //let noise = config.volatility * (rng.gen::<f64>() - 0.5) * 2.0 * dt.sqrt();
                 let noise = config.volatility * rng.gen::<f64>().sqrt() * dt.sqrt();
                 *mood += reversion + noise;
                 *mood = mood.clamp(-1.0, 1.0);
@@ -107,7 +108,7 @@ impl SentimentService {
                 if let Ok(mut sentiment_map) = sentiments.write() {
                     for stock in &stocks {
                         if let Some(current_sentiment) = sentiment_map.get_mut(&stock.id) {
-                            let stock_noise = config.volatility * 0.1 * rng.gen::<f64>();
+                            let stock_noise = config.volatility * 0.1 * rng.gen_range(-1.0..1.0);
                             *current_sentiment = (*mood + stock_noise).clamp(-1.0, 1.0);
                         }
                     }
