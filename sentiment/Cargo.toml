@@ -15,6 +15,7 @@ path = "src/sentiment_client.rs"
 serde = { version = "1.0", features = ["derive"] }
 csv = "1.3"
 rand = "0.8"
+rand_distr = "0.4.3"
 tokio = { version = "1.0", features = ["full"], optional = true }
 eframe = "0.22"
 egui = "0.22"

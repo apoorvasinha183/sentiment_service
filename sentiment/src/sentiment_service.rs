@@ -1,4 +1,6 @@
 // src/sentiment_service.rs
+use rand::Rng;
+use rand_distr::{Distribution, Normal};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -7,7 +9,6 @@ use std::{
     thread,
     time::Duration,
 };
-use rand::Rng;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Stock {
@@ -60,7 +61,10 @@ impl SentimentService {
         }
     }
 
-    pub fn from_csv(csv_path: &str, config: Option<SentimentConfig>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn from_csv(
+        csv_path: &str,
+        config: Option<SentimentConfig>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let mut reader = csv::Reader::from_path(csv_path)?;
         let mut stocks = Vec::new();
 
@@ -74,11 +78,14 @@ impl SentimentService {
     }
 
     pub fn start(&self) {
-        println!("Starting sentiment service for {} stocks", self.stocks.len());
-        
+        println!(
+            "Starting sentiment service for {} stocks",
+            self.stocks.len()
+        );
+
         // Start the sentiment update engine
         self.start_sentiment_engine();
-        
+
         // Start UDP broadcasters for each stock
         for stock in &self.stocks {
             self.start_udp_broadcaster(stock.clone());
@@ -94,14 +101,16 @@ impl SentimentService {
         thread::spawn(move || {
             let mut rng = rand::thread_rng();
             let dt = config.tick_interval.as_secs_f64();
+            // Create a normal distribution for the noise term
+            let normal_dist = Normal::new(0.0, config.volatility).unwrap();
 
             loop {
                 thread::sleep(config.tick_interval);
 
                 let mut mood = market_mood.write().unwrap();
                 let reversion = config.reversion_speed * (config.mean - *mood) * dt;
-                //let noise = config.volatility * (rng.gen::<f64>() - 0.5) * 2.0 * dt.sqrt();
-                let noise = config.volatility * rng.gen::<f64>().sqrt() * dt.sqrt();
+                // Use the normal distribution to generate symmetrical noise
+                let noise = normal_dist.sample(&mut rng) * dt.sqrt();
                 *mood += reversion + noise;
                 *mood = mood.clamp(-1.0, 1.0);
 
@@ -119,16 +128,22 @@ impl SentimentService {
 
     fn start_udp_broadcaster(&self, stock: Stock) {
         let sentiments = Arc::clone(&self.sentiments);
-        
+
         thread::spawn(move || {
             let addr = format!("127.0.0.1:{}", stock.sentiment_port);
             let socket = match UdpSocket::bind("0.0.0.0:0") {
                 Ok(socket) => {
-                    println!("✓ {} ({}) broadcasting to {}", stock.ticker, stock.company_name, addr);
+                    println!(
+                        "✓ {} ({}) broadcasting to {}",
+                        stock.ticker, stock.company_name, addr
+                    );
                     socket
                 }
                 Err(e) => {
-                    eprintln!("✗ Failed to create UDP socket for {}: {}", stock.ticker, e);
+                    eprintln!(
+                        "✗ Failed to create UDP socket for {}: {}",
+                        stock.ticker, e
+                    );
                     return;
                 }
             };
@@ -142,12 +157,12 @@ impl SentimentService {
                 };
 
                 let message = format!("{:.6}", sentiment);
-                
+
                 // Broadcast to port - fire and forget
                 if let Err(e) = socket.send_to(message.as_bytes(), &addr) {
                     eprintln!("Failed to broadcast {} sentiment: {}", stock.ticker, e);
                 }
-                
+
                 thread::sleep(Duration::from_millis(5)); // 200 updates per second
             }
         });
@@ -164,9 +179,9 @@ impl SentimentService {
 // CLI runner
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
-    
+
     let csv_path = args.get(1).map(|s| s.as_str()).unwrap_or("stock.csv");
-    
+
     let config = SentimentConfig {
         tick_interval: Duration::from_millis(100),
         mean: 0.0,
@@ -175,7 +190,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let service = SentimentService::from_csv(csv_path, Some(config))?;
-    
+
     println!("🚀 Sentiment microservice starting...");
     service.start();
 
@@ -217,7 +232,7 @@ mod tests {
     fn test_service_creation() {
         let stocks = create_test_stocks();
         let service = SentimentService::new(stocks, None);
-        
+
         assert_eq!(service.get_sentiment(1), 0.0);
         assert_eq!(service.get_sentiment(2), 0.0);
         assert_eq!(service.get_sentiment(999), 0.0); // Non-existent stock
@@ -227,20 +242,22 @@ mod tests {
     fn test_udp_broadcast() {
         let stocks = create_test_stocks();
         let service = SentimentService::new(stocks, None);
-        
+
         // Start service in background
         thread::spawn(move || {
             service.start();
         });
-        
+
         // Give service time to start
         thread::sleep(Duration::from_millis(200));
-        
+
         // Try to receive UDP data
         if let Ok(socket) = std::net::UdpSocket::bind("127.0.0.1:18001") {
-            socket.set_read_timeout(Some(Duration::from_millis(500))).ok();
+            socket
+                .set_read_timeout(Some(Duration::from_millis(500)))
+                .ok();
             let mut buf = [0; 64];
-            
+
             if let Ok((len, _)) = socket.recv_from(&mut buf) {
                 let data = String::from_utf8_lossy(&buf[..len]);
                 let sentiment: f64 = data.parse().unwrap_or(999.0);
@@ -249,4 +266,5 @@ mod tests {
         }
     }
 }
+
 
