@@ -6,7 +6,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use eframe::{egui, App, CreationContext, NativeOptions, run_native};
+use eframe::{egui, run_native, App, CreationContext, NativeOptions};
 
 struct MyApp {
     history: HashMap<String, Vec<[f64; 2]>>,
@@ -31,8 +31,7 @@ impl MyApp {
         for (ticker, port) in stocks.clone() {
             let tx = tx.clone();
             thread::spawn(move || {
-                let sock = UdpSocket::bind(("127.0.0.1", port))
-                    .expect("could not bind UDP socket");
+                let sock = UdpSocket::bind(("127.0.0.1", port)).expect("could not bind UDP socket");
                 sock.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
                 let mut buf = [0u8; 1024];
                 while let Ok(n) = sock.recv(&mut buf) {
@@ -46,12 +45,11 @@ impl MyApp {
         }
 
         // Prepare history & visibility maps
-        let history = stocks.iter()
-                            .map(|(t, _)| (t.clone(), Vec::new()))
-                            .collect();
-        let visible = stocks.iter()
-                            .map(|(t, _)| (t.clone(), true))
-                            .collect();
+        let history = stocks
+            .iter()
+            .map(|(t, _)| (t.clone(), Vec::new()))
+            .collect();
+        let visible = stocks.iter().map(|(t, _)| (t.clone(), true)).collect();
 
         Self {
             history,
@@ -97,10 +95,9 @@ impl App for MyApp {
             plot.show(ui, |plot_ui| {
                 for (ticker, hist) in &self.history {
                     if *self.visible.get(ticker).unwrap_or(&false) && !hist.is_empty() {
-                        let line = egui::plot::Line::new(
-                            egui::plot::PlotPoints::from(hist.clone())
-                        )
-                        .name(ticker.clone());
+                        let line =
+                            egui::plot::Line::new(egui::plot::PlotPoints::from(hist.clone()))
+                                .name(ticker.clone());
                         plot_ui.line(line);
                     }
                 }

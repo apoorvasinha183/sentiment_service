@@ -140,10 +140,7 @@ impl SentimentService {
                     socket
                 }
                 Err(e) => {
-                    eprintln!(
-                        "✗ Failed to create UDP socket for {}: {}",
-                        stock.ticker, e
-                    );
+                    eprintln!("✗ Failed to create UDP socket for {}: {}", stock.ticker, e);
                     return;
                 }
             };
@@ -266,5 +263,3 @@ mod tests {
         }
     }
 }
-
-
