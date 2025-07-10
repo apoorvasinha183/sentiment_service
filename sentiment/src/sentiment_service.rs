@@ -182,8 +182,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = SentimentConfig {
         tick_interval: Duration::from_millis(100),
         mean: 0.0,
-        reversion_speed: 0.3,
-        volatility: 0.15,
+        reversion_speed: 0.05,
+        volatility: 0.5,
     };
 
     let service = SentimentService::from_csv(csv_path, Some(config))?;
