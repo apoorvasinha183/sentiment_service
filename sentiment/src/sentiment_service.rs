@@ -4,7 +4,7 @@ use rand_distr::{Distribution, Normal};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
-    net::UdpSocket,
+    net::{Ipv4Addr, UdpSocket},
     sync::{Arc, RwLock},
     thread,
     time::Duration,
@@ -128,13 +128,16 @@ impl SentimentService {
 
     fn start_udp_broadcaster(&self, stock: Stock) {
         let sentiments = Arc::clone(&self.sentiments);
+        const MULTICAST_ADDR: Ipv4Addr = Ipv4Addr::new(224, 0, 0, 123);
 
         thread::spawn(move || {
-            let addr = format!("127.0.0.1:{}", stock.sentiment_port);
+            let addr = format!("{}:{}", MULTICAST_ADDR, stock.sentiment_port);
             let socket = match UdpSocket::bind("0.0.0.0:0") {
                 Ok(socket) => {
+                    // Set a TTL to prevent packets from leaving the local network
+                    socket.set_multicast_ttl_v4(1).expect("set_multicast_ttl_v4 failed");
                     println!(
-                        "✓ {} ({}) broadcasting to {}",
+                        "✓ {} ({}) broadcasting to multicast group {}",
                         stock.ticker, stock.company_name, addr
                     );
                     socket
@@ -155,7 +158,7 @@ impl SentimentService {
 
                 let message = format!("{:.6}", sentiment);
 
-                // Broadcast to port - fire and forget
+                // Broadcast to multicast group - fire and forget
                 if let Err(e) = socket.send_to(message.as_bytes(), &addr) {
                     eprintln!("Failed to broadcast {} sentiment: {}", stock.ticker, e);
                 }
