@@ -103,7 +103,7 @@ impl SentimentService {
             let dt = config.tick_interval.as_secs_f64();
             // Create a normal distribution for the noise term
             let normal_dist = Normal::new(0.0, config.volatility).unwrap();
-
+            let offset = 0.5;
             loop {
                 thread::sleep(config.tick_interval);
 
@@ -118,7 +118,7 @@ impl SentimentService {
                     for stock in &stocks {
                         if let Some(current_sentiment) = sentiment_map.get_mut(&stock.id) {
                             let stock_noise = config.volatility * 0.1 * rng.gen_range(-1.0..1.0);
-                            *current_sentiment = (*mood + stock_noise).clamp(-1.0, 1.0);
+                            *current_sentiment = (*mood + stock_noise+offset).clamp(-1.0, 1.0);
                         }
                     }
                 }
